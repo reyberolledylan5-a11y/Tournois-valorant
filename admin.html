@@ -6,60 +6,58 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Admin Valorancia</title>
 <style>
+/* Palette tirée des illustrations : ciel rose et violet pastel, indigo profond pour le texte. */
 :root {
-  --bg: #f1def7;
-  --surface: #fffaff;
-  --ink: #24102e;
-  --muted: #6e4a80;
-  --accent: #5b2a86;
-  --accent-ink: #fdf4ff;
-  --soft: #f7b9dc;
-  --gold: #d6609a;
-  --line: rgba(91, 42, 134, 0.24);
-  --t1: #9a6cb8;
-  --t2: #7a3fa6;
-  --t3: #4f2478;
-  --icon: #14061f;
+  --bg: #f3dcf3;
+  --sky: linear-gradient(180deg, #fad9ee 0%, #e8dafb 48%, #f9d8ee 100%);
+  --surface: #fff8fd;
+  --ink: #2c2050;
+  --muted: #6d5a95;
+  --accent: #7b4bbd;
+  --accent-ink: #fff8fd;
+  --soft: #f8c7e3;
+  --gold: #ee7fb6;
+  --line: rgba(123, 75, 189, 0.26);
+  --beam: rgba(255, 255, 255, 0.6);
+  --t1: #a98ad6;
+  --t2: #8f64c9;
+  --t3: #6d3fae;
+  --icon: #1b1040;
   --serif: "Times New Roman", Times, "Liberation Serif", serif;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #1d0f2a;
-    --surface: #2e1942;
-    --ink: #f8eafc;
-    --muted: #cfa8e0;
-    --accent: #f2a8d8;
-    --accent-ink: #1d0f2a;
-    --soft: #4f2478;
-    --gold: #f08bc0;
-    --line: rgba(242, 168, 216, 0.3);
-    --t1: #9a6cb8;
-    --t2: #7a3fa6;
-    --t3: #4f2478;
-    --icon: #14061f;
+    --bg: #1f1842;
+    --sky: linear-gradient(180deg, #2c1f5c 0%, #1f1842 55%, #361c54 100%);
+    --surface: #2d2360;
+    --ink: #fbeaf8;
+    --muted: #cdb6ec;
+    --accent: #f4a6d7;
+    --accent-ink: #231a4a;
+    --soft: #46308a;
+    --gold: #f08cc4;
+    --line: rgba(244, 166, 215, 0.3);
+    --beam: rgba(244, 166, 215, 0.14);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #1d0f2a;
-  --surface: #2e1942;
-  --ink: #f8eafc;
-  --muted: #cfa8e0;
-  --accent: #f2a8d8;
-  --accent-ink: #1d0f2a;
-  --soft: #4f2478;
-  --gold: #f08bc0;
-  --line: rgba(242, 168, 216, 0.3);
-  --t1: #9a6cb8;
-  --t2: #7a3fa6;
-  --t3: #4f2478;
-  --icon: #14061f;
+  --bg: #1f1842;
+  --sky: linear-gradient(180deg, #2c1f5c 0%, #1f1842 55%, #361c54 100%);
+  --surface: #2d2360;
+  --ink: #fbeaf8;
+  --muted: #cdb6ec;
+  --accent: #f4a6d7;
+  --accent-ink: #231a4a;
+  --soft: #46308a;
+  --gold: #f08cc4;
+  --line: rgba(244, 166, 215, 0.3);
+  --beam: rgba(244, 166, 215, 0.14);
   color-scheme: dark;
 }
 
-
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--serif); font-size: 18px; line-height: 1.5; padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 80px; }
+body { margin: 0; background: var(--bg) var(--sky) fixed; color: var(--ink); font-family: var(--serif); font-size: 18px; line-height: 1.5; padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 80px; }
 .wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 24px; }
 h1 { margin: 0; font-weight: 400; text-transform: uppercase; letter-spacing: 0.06em; font-size: clamp(1.8rem, 6vw, 2.8rem); color: var(--accent); line-height: 1.05; }
 h2 { margin: 0; font-weight: 400; text-transform: uppercase; letter-spacing: 0.12em; font-size: 1.1rem; color: var(--accent); }
