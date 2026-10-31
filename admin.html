@@ -73,12 +73,16 @@ h2 { margin: 0; font-weight: 400; text-transform: uppercase; letter-spacing: 0.1
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
 .field { display: grid; gap: 4px; min-width: 0; }
 .field label { text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.7rem; color: var(--muted); }
-input { font: inherit; font-size: 1rem; color: var(--ink); background: var(--bg); border: 1px solid var(--line); padding: 8px 10px; min-width: 0; width: 100%; }
+input, select { font: inherit; font-size: 1rem; color: var(--ink); background: var(--bg); border: 1px solid var(--line); padding: 8px 10px; min-width: 0; width: 100%; }
 .players { display: grid; gap: 8px; }
 .prow { display: grid; grid-template-columns: 1.2fr 1fr 1fr auto; gap: 8px; align-items: end; }
 .prow .field label { display: none; }
 .phead { display: grid; grid-template-columns: 1.2fr 1fr 1fr auto; gap: 8px; text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.7rem; color: var(--muted); }
 .phead span:last-child, .prow button { min-width: 5.5rem; }
+#teams, #matches { width: 100%; max-width: none; margin: 0; }
+.warn { margin: 0; color: var(--accent); font-style: italic; }
+.warn::before { content: "À vérifier : "; font-style: normal; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.72rem; }
+.team.bad { background: var(--soft); }
 .tfoot { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
 .out { display: grid; gap: 12px; background: var(--surface); border: 1px solid var(--gold); padding: 16px; }
 .out[hidden] { display: none; }
@@ -105,6 +109,16 @@ textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8
   <p class="status" id="status" role="status" aria-live="polite"></p>
   <div id="teams" class="wrap" style="gap:16px"></div>
   <div class="bar"><button class="btn" type="button" id="add-team">Ajouter une équipe</button></div>
+
+  <header>
+    <h1 style="font-size:clamp(1.5rem,5vw,2.2rem)">Calendrier des matchs</h1>
+    <p class="lede">Ajoute les matchs avec le jour, l'heure et les deux équipes. Un message « À vérifier » apparaît si une équipe n'est pas disponible à cette heure ou si elle a déjà un match qui se chevauche.</p>
+  </header>
+  <div id="matches" class="wrap" style="gap:16px"></div>
+  <div class="bar">
+    <button class="btn" type="button" id="add-match">Ajouter un match</button>
+    <button class="btn" type="button" id="sort-match">Trier par jour et heure</button>
+  </div>
 
   <section class="out" id="out" hidden>
     <h2>Nouveau fichier data.js</h2>
@@ -177,7 +191,7 @@ textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8
     if (opts.list) i.setAttribute("list", opts.list);
     if (opts.max) i.maxLength = opts.max;
     i.autocomplete = "off";
-    i.addEventListener("input", function () { obj[key] = i.value; persist(); });
+    i.addEventListener("input", function () { obj[key] = i.value; persist(); if (opts.onInput) opts.onInput(); });
     f.appendChild(i);
     return f;
   }
@@ -200,7 +214,7 @@ textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8
     var c = el("article", "team");
     c.appendChild(el("h2", null, "Équipe " + (n + 1)));
     var g = el("div", "grid");
-    g.appendChild(input("Nom de l'équipe", team, "name", { max: 40 }));
+    g.appendChild(input("Nom de l'équipe", team, "name", { max: 40, onInput: renderMatches }));
     g.appendChild(input("Capitaine", team, "captain", { max: 40 }));
     g.appendChild(input("Pseudo Discord", team, "discord", { max: 40 }));
     g.appendChild(input("Disponible dès", team, "from", { type: "time" }));
@@ -229,11 +243,110 @@ textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8
     return c;
   }
 
+
+  var DUR = { 1: 75, 3: 150, 5: 210 };
+  function fmt(t) { return t ? t.replace(":", "h") : ""; }
+  function toMin(t) { if (!t) return null; var q = t.split(":"); return parseInt(q[0], 10) * 60 + parseInt(q[1], 10); }
+  function teamById(id) { for (var i = 0; i < data.teams.length; i++) if (data.teams[i].id === id) return data.teams[i]; return null; }
+  function windowLabel(t) {
+    if (t.from && t.to) return "de " + fmt(t.from) + " à " + fmt(t.to);
+    if (t.from) return "à partir de " + fmt(t.from);
+    if (t.to) return "jusqu'à " + fmt(t.to);
+    return "";
+  }
+  function matchWarnings(m) {
+    var out = [], t = toMin(m.time);
+    [m.a, m.b].forEach(function (id) {
+      var team = teamById(id);
+      if (!team) return;
+      var f = toMin(team.from), e = toMin(team.to);
+      if (t != null && ((f != null && t < f) || (e != null && t > e))) out.push((team.name || "Une équipe") + " est disponible " + windowLabel(team) + ".");
+      data.matches.forEach(function (o) {
+        if (o === m || o.date !== m.date || (o.a !== id && o.b !== id)) return;
+        var ot = toMin(o.time);
+        if (ot == null || t == null) return;
+        if (t < ot + (DUR[o.bo] || 75) && ot < t + (DUR[m.bo] || 75)) out.push((team.name || "Une équipe") + " a déjà un match à " + fmt(o.time) + ".");
+      });
+    });
+    return out;
+  }
+
+  function teamSelect(label, obj, key) {
+    var f = el("div", "field");
+    var id = "f" + Math.random().toString(36).slice(2, 9);
+    var l = el("label", null, label); l.setAttribute("for", id); f.appendChild(l);
+    var sel = el("select"); sel.id = id;
+    var o0 = el("option", null, "Choisir"); o0.value = ""; sel.appendChild(o0);
+    var known = false;
+    data.teams.forEach(function (t) {
+      var o = el("option", null, t.name || "(sans nom)"); o.value = t.id; sel.appendChild(o);
+      if (t.id === obj[key]) known = true;
+    });
+    if (obj[key] && !known) { var ou = el("option", null, "(équipe supprimée)"); ou.value = obj[key]; sel.appendChild(ou); }
+    sel.value = obj[key] || "";
+    sel.addEventListener("change", function () { obj[key] = sel.value; persist(); renderMatches(); });
+    f.appendChild(sel);
+    return f;
+  }
+  function boSelect(obj) {
+    var f = el("div", "field");
+    var id = "f" + Math.random().toString(36).slice(2, 9);
+    var l = el("label", null, "Format"); l.setAttribute("for", id); f.appendChild(l);
+    var sel = el("select"); sel.id = id;
+    [1, 3, 5].forEach(function (n) { var o = el("option", null, "BO" + n); o.value = String(n); sel.appendChild(o); });
+    sel.value = String(obj.bo || 1);
+    sel.addEventListener("change", function () { obj.bo = parseInt(sel.value, 10); persist(); renderMatches(); });
+    f.appendChild(sel);
+    return f;
+  }
+
+  function matchCard(m, n) {
+    var w = matchWarnings(m);
+    var c = el("article", "team" + (w.length ? " bad" : ""));
+    c.appendChild(el("h2", null, "Match " + (n + 1)));
+    var g = el("div", "grid");
+    g.appendChild(input("Jour", m, "date", { type: "date", onInput: renderMatches }));
+    g.appendChild(input("Heure", m, "time", { type: "time", onInput: renderMatches }));
+    g.appendChild(teamSelect("Équipe A", m, "a"));
+    g.appendChild(teamSelect("Équipe B", m, "b"));
+    g.appendChild(input("Tour", m, "round", { max: 40 }));
+    g.appendChild(boSelect(m));
+    c.appendChild(g);
+    w.forEach(function (x) { c.appendChild(el("p", "warn", x)); });
+    var foot = el("div", "tfoot");
+    var del = el("button", "btn sm", "Supprimer le match"); del.type = "button";
+    del.addEventListener("click", function () { data.matches.splice(data.matches.indexOf(m), 1); persist(); renderMatches(); });
+    foot.appendChild(del);
+    c.appendChild(foot);
+    return c;
+  }
+  function renderMatches() {
+    var box = $("matches");
+    if (!box) return;
+    var active = document.activeElement, keep = active && box.contains(active) ? active.id : null;
+    box.textContent = "";
+    if (!data.matches) data.matches = [];
+    if (!data.matches.length) box.appendChild(el("p", "note", "Aucun match. Clique sur « Ajouter un match »."));
+    data.matches.forEach(function (m, i) { box.appendChild(matchCard(m, i)); });
+    if (keep && document.getElementById(keep)) document.getElementById(keep).focus();
+  }
+  function sortMatches() {
+    data.matches.sort(function (a, b) { return ((a.date || "") + (a.time || "")).localeCompare((b.date || "") + (b.time || "")); });
+  }
+  $("add-match").addEventListener("click", function () {
+    if (!data.matches) data.matches = [];
+    var last = data.matches[data.matches.length - 1];
+    data.matches.push({ date: last ? last.date : "", time: "", a: "", b: "", round: last ? last.round : "", bo: last ? last.bo : 1 });
+    persist(); renderMatches();
+  });
+  $("sort-match").addEventListener("click", function () { sortMatches(); persist(); renderMatches(); });
+
   function render() {
     var box = $("teams");
     box.textContent = "";
     if (!data.teams.length) box.appendChild(el("p", "note", "Aucune équipe. Clique sur « Ajouter une équipe »."));
     data.teams.forEach(function (t, i) { box.appendChild(teamCard(t, i)); });
+    renderMatches();
   }
 
   $("add-team").addEventListener("click", function () {
@@ -254,6 +367,9 @@ textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8
         return { name: (p.name || "").trim(), elo: (p.elo || "").trim(), peak: (p.peak || "").trim() };
       }).filter(function (p) { return p.name; });
     });
+    out.matches = (out.matches || []).map(function (m) {
+      return { date: m.date, time: m.time, a: m.a, b: m.b, round: (m.round || "").trim(), bo: parseInt(m.bo, 10) || 1 };
+    }).sort(function (a, b) { return (a.date + a.time).localeCompare(b.date + b.time); });
     var head = "// Fichier généré par l'espace admin.\n"
       + "// Équipe : id, name, captain, discord, from, to (heures de disponibilité, \"\" si aucune limite), note, players (name, elo, peak).\n"
       + "// Match : date (AAAA-MM-JJ), time (HH:MM), a et b (les id des deux équipes), round (tour), bo (1, 3 ou 5).\n";
@@ -263,6 +379,11 @@ textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8
   $("gen").addEventListener("click", function () {
     for (var i = 0; i < data.teams.length; i++) {
       if (!(data.teams[i].name || "").trim()) { say("Une équipe n'a pas de nom. Remplis-le avant de générer le fichier."); return; }
+    }
+    for (var k = 0; k < (data.matches || []).length; k++) {
+      var mm = data.matches[k];
+      if (!mm.date || !mm.time || !mm.a || !mm.b) { say("Le match " + (k + 1) + " est incomplet : choisis le jour, l'heure et les deux équipes."); return; }
+      if (mm.a === mm.b) { say("Le match " + (k + 1) + " oppose une équipe à elle-même."); return; }
     }
     say("");
     $("code").value = makeJs();
