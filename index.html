@@ -320,6 +320,11 @@ body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-even
 
 /* Titre : Cinzel Decorative (grande lettrine ornée, puis capitales fines) */
 .top h1 { font-family: "Cinzel Decorative", "Times New Roman", Times, serif; font-weight: 700; text-transform: none; letter-spacing: 0.03em; font-size: clamp(2rem, 9.5vw, 5.2rem); max-width: 100%; line-height: 1.05; }
+.mrow.done .vs b { font-weight: 400; }
+.res { display: block; margin-top: 4px; color: var(--accent); }
+.res strong { font-weight: 700; }
+.tbl.narrow { min-width: 440px; }
+.tbl td.n, .tbl th.n { text-align: center; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -402,6 +407,12 @@ body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-even
       </div>
     </div>
     <p class="note">Le tirage au sort a lieu en direct sur Discord à la clôture des inscriptions.</p>
+  </section>
+
+  <section id="classement">
+    <h2>Classement</h2>
+    <p class="lede">Victoires et défaites, calculées à partir des scores entrés dans le calendrier.</p>
+    <div id="standings"></div>
   </section>
 
   <section id="equipes">
@@ -575,12 +586,22 @@ body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-even
       sec.appendChild(h);
       groups[d].forEach(function (m) {
         var a = teamById(m.a), b = teamById(m.b);
-        var w = warnings(m);
-        var row = el("div", "mrow" + (w.length ? " bad" : ""));
+        var res = resultOf(m);
+        var w = res ? [] : warnings(m);
+        var row = el("div", "mrow" + (w.length ? " bad" : "") + (res ? " done" : ""));
         row.appendChild(el("time", null, fmt(m.time)));
         var vs = el("div", "vs");
         vs.appendChild(el("b", null, (a ? a.name : "Équipe supprimée") + " contre " + (b ? b.name : "Équipe supprimée")));
         vs.appendChild(el("small", null, (m.round ? m.round + " · " : "") + "BO" + (m.bo || 1)));
+        if (res) {
+          var rl = el("span", "res");
+          var an = a ? a.name : "Équipe supprimée", bn = b ? b.name : "Équipe supprimée";
+          var sa = el(res.winner === "a" ? "strong" : "span", null, an + " " + res.a);
+          var sb = el(res.winner === "b" ? "strong" : "span", null, res.b + " " + bn);
+          rl.appendChild(sa); rl.appendChild(document.createTextNode(" – ")); rl.appendChild(sb);
+          rl.appendChild(document.createTextNode(res.winner ? " · victoire de " + (res.winner === "a" ? an : bn) : " · égalité"));
+          vs.appendChild(rl);
+        }
         w.forEach(function (x) { vs.appendChild(el("span", "warn", x)); });
         row.appendChild(vs);
         if (state.editable) {
@@ -597,6 +618,49 @@ body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-even
       });
       box.appendChild(sec);
     });
+  }
+
+  function resultOf(m) {
+    var a = m.scoreA, b = m.scoreB;
+    if (a === "" || b === "" || a == null || b == null) return null;
+    a = Number(a); b = Number(b);
+    if (isNaN(a) || isNaN(b)) return null;
+    return { a: a, b: b, winner: a > b ? "a" : (b > a ? "b" : "") };
+  }
+
+  function renderStandings() {
+    var box = $("standings");
+    if (!box) return;
+    box.textContent = "";
+    if (!state.teams.length) { box.appendChild(emptyBox("Pas encore de classement", "Il apparaîtra dès que des équipes seront inscrites.")); return; }
+    var rows = state.teams.map(function (t) { return { name: t.name || "", j: 0, v: 0, d: 0, diff: 0, id: t.id }; });
+    var by = {}; rows.forEach(function (r) { by[r.id] = r; });
+    state.matches.forEach(function (m) {
+      var res = resultOf(m);
+      if (!res || !by[m.a] || !by[m.b]) return;
+      by[m.a].j++; by[m.b].j++;
+      by[m.a].diff += res.a - res.b; by[m.b].diff += res.b - res.a;
+      if (res.winner === "a") { by[m.a].v++; by[m.b].d++; }
+      else if (res.winner === "b") { by[m.b].v++; by[m.a].d++; }
+    });
+    rows.sort(function (x, y) { return (y.v - x.v) || (y.diff - x.diff) || x.name.localeCompare(y.name, "fr"); });
+    var wrap = el("div", "scroll");
+    var table = el("table", "tbl narrow");
+    var head = el("tr");
+    [["#", "n"], ["Équipe", ""], ["Joués", "n"], ["Victoires", "n"], ["Défaites", "n"], ["Diff.", "n"]].forEach(function (h) { head.appendChild(el("th", h[1], h[0])); });
+    var thead = el("thead"); thead.appendChild(head); table.appendChild(thead);
+    var tb = el("tbody");
+    rows.forEach(function (r, i) {
+      var tr = el("tr");
+      tr.appendChild(el("td", "n", String(i + 1)));
+      tr.appendChild(el("td", null, r.name));
+      tr.appendChild(el("td", "n", String(r.j)));
+      tr.appendChild(el("td", "n", String(r.v)));
+      tr.appendChild(el("td", "n", String(r.d)));
+      tr.appendChild(el("td", "n", (r.diff > 0 ? "+" : "") + r.diff));
+      tb.appendChild(tr);
+    });
+    table.appendChild(tb); wrap.appendChild(table); box.appendChild(wrap);
   }
 
   function fillSelects() {
@@ -617,6 +681,7 @@ body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-even
     if ($("team-form")) $("team-form").hidden = !state.editable;
     if ($("match-form")) $("match-form").hidden = !state.editable;
     fillSelects();
+    renderStandings();
     renderTeams();
     renderMatches();
   }

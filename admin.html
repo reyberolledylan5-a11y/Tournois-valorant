@@ -187,7 +187,7 @@ textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8
     var f = el("div", "field");
     var id = "f" + Math.random().toString(36).slice(2, 9);
     var l = el("label", null, label); l.setAttribute("for", id); f.appendChild(l);
-    var i = el("input"); i.id = id; i.type = opts.type || "text"; i.value = obj[key] || "";
+    var i = el("input"); i.id = id; i.type = opts.type || "text"; i.value = obj[key] == null ? "" : obj[key];
     if (opts.list) i.setAttribute("list", opts.list);
     if (opts.max) i.maxLength = opts.max;
     i.autocomplete = "off";
@@ -301,7 +301,8 @@ textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8
   }
 
   function matchCard(m, n) {
-    var w = matchWarnings(m);
+    var done = m.scoreA !== "" && m.scoreB !== "" && m.scoreA != null && m.scoreB != null && !isNaN(Number(m.scoreA)) && !isNaN(Number(m.scoreB));
+    var w = done ? [] : matchWarnings(m);
     var c = el("article", "team" + (w.length ? " bad" : ""));
     c.appendChild(el("h2", null, "Match " + (n + 1)));
     var g = el("div", "grid");
@@ -311,7 +312,14 @@ textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8
     g.appendChild(teamSelect("Équipe B", m, "b"));
     g.appendChild(input("Tour", m, "round", { max: 40 }));
     g.appendChild(boSelect(m));
+    g.appendChild(input("Score équipe A", m, "scoreA", { type: "number", onInput: renderMatches }));
+    g.appendChild(input("Score équipe B", m, "scoreB", { type: "number", onInput: renderMatches }));
     c.appendChild(g);
+    if (done) {
+      var ta = teamById(m.a), tb2 = teamById(m.b), na = Number(m.scoreA), nb = Number(m.scoreB);
+      var txt = na === nb ? "Égalité" : "Victoire de " + ((na > nb ? ta : tb2) ? (na > nb ? ta : tb2).name : "l'équipe");
+      c.appendChild(el("p", "note", "Résultat enregistré : " + txt + " (" + na + " – " + nb + ")."));
+    }
     w.forEach(function (x) { c.appendChild(el("p", "warn", x)); });
     var foot = el("div", "tfoot");
     var del = el("button", "btn sm", "Supprimer le match"); del.type = "button";
@@ -368,7 +376,11 @@ textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8
       }).filter(function (p) { return p.name; });
     });
     out.matches = (out.matches || []).map(function (m) {
-      return { date: m.date, time: m.time, a: m.a, b: m.b, round: (m.round || "").trim(), bo: parseInt(m.bo, 10) || 1 };
+      var o = { date: m.date, time: m.time, a: m.a, b: m.b, round: (m.round || "").trim(), bo: parseInt(m.bo, 10) || 1 };
+      var okA = m.scoreA !== "" && m.scoreA != null && !isNaN(Number(m.scoreA));
+      var okB = m.scoreB !== "" && m.scoreB != null && !isNaN(Number(m.scoreB));
+      if (okA && okB) { o.scoreA = Number(m.scoreA); o.scoreB = Number(m.scoreB); }
+      return o;
     }).sort(function (a, b) { return (a.date + a.time).localeCompare(b.date + b.time); });
     var head = "// Fichier généré par l'espace admin.\n"
       + "// Équipe : id, name, captain, discord, from, to (heures de disponibilité, \"\" si aucune limite), note, players (name, elo, peak).\n"
